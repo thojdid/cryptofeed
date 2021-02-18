@@ -77,6 +77,20 @@ class LiquidationCallback(Callback):
     async def __call__(self, *, feed: str, symbol: str, side: str, leaves_qty: Decimal, price: Decimal, order_id: str, timestamp: float, receipt_timestamp: float):
         await super().__call__(feed, symbol, side, leaves_qty, price, order_id, timestamp, receipt_timestamp)
 
+class OrdersCallback(Callback):
+    """
+    For private channel
+    """
+    async def __call__(self, *, feed: str, market: str,type: str,side: str,price: float,size: float,status: str,filled_size: float,remaining_size: float,post_only: bool,avg_fill_price: float, reduceOnly:bool, order_id :str, created_at: float):
+        await super().__call__(feed,market,type,side,price,size,status,filled_size,remaining_size,post_only,avg_fill_price, reduceOnly, order_id, created_at)
+
+class FillsCallback(Callback):
+    """
+    For private channel
+    """
+    async def __call__(self, *, feed: str, market: str,type: str,side: str,price: float,size: float, order_id:str,liquidity: str, filled_at: float):
+        await super().__call__(feed, market, type, side, price, size, order_id, liquidity, filled_at)
+
 
 class OpenInterestCallback(Callback):
     pass

@@ -60,6 +60,28 @@ def symbol_std_to_exchange(symbol: str, exchange: str):
             return f"f{symbol}"
         raise UnsupportedSymbol(f'{symbol} is not supported on {exchange}')
 
+def pair_std_to_exchange(pair: str, exchange: str):
+    # bitmex does its own validation of trading pairs dynamically
+    if exchange in {BITMEX, DERIBIT, KRAKEN_FUTURES}:
+        return pair
+    if pair in _std_trading_pairs:
+        try:
+            return _std_trading_pairs[pair][exchange]
+        except KeyError:
+            raise UnsupportedTradingPair(f'{pair} is not supported on {exchange}')
+    else:
+        # Bitfinex supports funding pairs that are single currencies, prefixed with f
+        if exchange == BITFINEX and '-' not in pair:
+            return f"f{pair}"
+        raise UnsupportedTradingPair(f'{pair} is not supported on {exchange}')
+
+def pair_exchange_to_std(pair):
+    if pair in _exchange_to_std:
+        return _exchange_to_std[pair]
+    # Bitfinex funding currency
+    if pair[0] == 'f':
+        return pair[1:]
+    return None
 
 def symbol_exchange_to_std(symbol):
     if symbol in _exchange_to_std:

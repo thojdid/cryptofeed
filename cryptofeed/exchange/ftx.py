@@ -32,13 +32,28 @@ LOG = logging.getLogger('feedhandler')
 class FTX(Feed):
     id = FTX_id
 
-    def __init__(self, **kwargs):
-        super().__init__('wss://ftexchange.com/ws/', **kwargs)
+    def __init__(self, pairs=None, channels=None, callbacks=None, api_key=None, api_secret=None,subaccount=None, **kwargs):
+        super().__init__('wss://ftexchange.com/ws/', pairs=pairs, channels=channels, callbacks=callbacks, api_key=api_key, api_secret=api_secret,subaccount=subaccount, **kwargs)
+        self.__reset()
 
     def __reset(self):
         self.l2_book = {}
         self.funding = {}
         self.open_interest = {}
+        self._logged_in = False
+
+    async def _login(self, websocket) -> None:
+        ts = int(time() * 1000)
+        await websocket.send(json.dumps(
+            {'op': 'login', 'args': {
+                'key': self.api_key,
+                'subaccount':self.subaccount,
+                'sign': hmac.new(
+                    self.api_secret.encode(), f'{ts}websocket_login'.encode(), 'sha256').hexdigest(),
+                'time': ts,
+            }}))
+        self._logged_in = True
+        await asyncio.sleep(0)
 
     async def subscribe(self, conn: AsyncConnection):
         self.__reset()
@@ -50,6 +65,15 @@ class FTX(Feed):
             if chan == OPEN_INTEREST:
                 asyncio.create_task(self._open_interest(symbols))  # TODO: use HTTPAsyncConn
                 continue
+            if chan == ORDERS or chan == FILLS:
+                if not self._logged_in:
+                    await(self._login(websocket))
+                await websocket.send(json.dumps(
+                    {
+                        "channel": chan,
+                        "op": "subscribe"
+                    }))
+                return
             for pair in symbols:
                 await conn.send(json.dumps(
                     {
@@ -248,6 +272,62 @@ class FTX(Feed):
                 raise BadChecksum
             await self.book_callback(self.l2_book[pair], L2_BOOK, pair, False, delta, float(msg['data']['time']), timestamp)
 
+    async def _orders(self, msg: dict, timestamp: float):
+        '''
+        {'id': 28452892189, 'clientId': None,
+        'market': 'FTT/USD', 'type': 'limit',
+        'side': 'buy', 'price': Decimal('15.0'),
+        'size': Decimal('0.1'), 'status': 'new', 'filledSize': Decimal('0.0'),
+        'remainingSize': Decimal('0.1'), 'reduceOnly': False, 'liquidation': False,
+        'avgFillPrice': None, 'postOnly': False, 'ioc': False,
+        'createdAt': datetime.datetime(2021, 2, 16, 7, 33, 45, 128599, tzinfo=datetime.timezone.utc)}
+        '''
+        order = msg['data']
+        await self.callback(ORDERS, feed=self.id,
+                            market=order['market'],
+                            type=order['type'],
+                            side=order['side'],
+                            price=order['price'],
+                            size=order['size'],
+                            status=order['status'],
+                            filled_size=order['filledSize'],
+                            remaining_size=order['remainingSize'],
+                            post_only=order['postOnly'],
+                            avg_fill_price=order['avgFillPrice'],
+                            reduceOnly=order['reduceOnly'],
+                            order_id=order['id'],
+                            created_at=order['createdAt'].timestamp(),
+                            )
+        # pair=pair_exchange_to_std(msg['market']),
+        # side=BUY if trade['side'] == 'buy' else SELL,
+        # amount=Decimal(trade['size']),
+        # price=Decimal(trade['price']),
+        # order_id=None,
+        # timestamp=float(timestamp_normalize(self.id, trade['time'])),
+        # receipt_timestamp=timestamp)
+
+    async def _fills(self, msg: dict, timestamp: float):
+        '''
+        {'channel': 'fills', 'type': 'update', 'data':
+        {'id': 927340550, 'market': 'DOT-PERP', 'future': 'DOT-PERP', 'baseCurrency': None,
+        'quoteCurrency': None, 'type': 'order', 'side': 'buy', 'price': Decimal('29.908'),
+        'size': Decimal('1.0'), 'orderId': 28459779732, 'time': datetime.datetime(2021, 2, 16, 8, 27, 45, 495002, tzinfo=datetime.timezone.utc),
+        'tradeId': 461640141, 'feeRate': Decimal('0.0'), 'fee': Decimal('0.0'), 'feeCurrency': 'USD', 'liquidity': 'maker'}}
+
+        '''
+        print(msg)
+        fills = msg['data']
+        await self.callback(FILLS, feed=self.id,
+                            market=fills['market'],
+                            type=fills['type'],
+                            side=fills['side'],
+                            price=fills['price'],
+                            size=fills['size'],
+                            liquidity=fills['liquidity'],
+                            order_id=fills['orderId'],
+                            filled_at=fills['time'].timestamp(),
+                            )
+
     async def message_handler(self, msg: str, conn, timestamp: float):
 
         msg = json.loads(msg, parse_float=Decimal)
@@ -260,6 +340,10 @@ class FTX(Feed):
                 await self._trade(msg, timestamp)
             elif msg['channel'] == 'ticker':
                 await self._ticker(msg, timestamp)
+            elif msg['channel'] == 'orders':
+                await self._orders(msg, timestamp)
+            elif msg['channel'] == 'fills':
+                await self._fills(msg, timestamp)
             else:
                 LOG.warning("%s: Invalid message type %s", self.id, msg)
         else:
