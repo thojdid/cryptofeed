@@ -12,6 +12,7 @@ from decimal import Decimal
 from time import time
 import zlib
 from typing import Iterable
+import hmac
 
 import aiohttp
 from sortedcontainers import SortedDict as sd
@@ -42,9 +43,9 @@ class FTX(Feed):
         self.open_interest = {}
         self._logged_in = False
 
-    async def _login(self, websocket) -> None:
+    async def _login(self,conn) -> None:
         ts = int(time() * 1000)
-        await websocket.send(json.dumps(
+        await conn.send(json.dumps(
             {'op': 'login', 'args': {
                 'key': self.api_key,
                 'subaccount':self.subaccount,
@@ -67,8 +68,8 @@ class FTX(Feed):
                 continue
             if chan == ORDERS or chan == FILLS:
                 if not self._logged_in:
-                    await(self._login(websocket))
-                await websocket.send(json.dumps(
+                    await(self._login(conn))
+                await conn.send(json.dumps(
                     {
                         "channel": chan,
                         "op": "subscribe"
@@ -283,6 +284,7 @@ class FTX(Feed):
         'createdAt': datetime.datetime(2021, 2, 16, 7, 33, 45, 128599, tzinfo=datetime.timezone.utc)}
         '''
         order = msg['data']
+        print(order)
         await self.callback(ORDERS, feed=self.id,
                             market=order['market'],
                             type=order['type'],
