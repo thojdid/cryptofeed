@@ -26,7 +26,7 @@ LOG = logging.getLogger('feedhandler')
 class Feed:
     id = 'NotImplemented'
 
-    def __init__(self, address: Union[dict, str], sandbox=False, symbols=None, channels=None, subscription=None, config: Union[Config, dict, str] = None, callbacks=None, max_depth=None, book_interval=1000, snapshot_interval=False, checksum_validation=False, cross_check=False, origin=None):
+    def __init__(self, address: Union[dict, str], sandbox=False, symbols=None, channels=None, subscription=None, config: Union[Config, dict, str] = None, callbacks=None, max_depth=None, book_interval=1000, snapshot_interval=False, checksum_validation=False, cross_check=False, origin=None,api_key=None, api_secret=None,subaccount=None):
         """
         address: str, or dict
             address to be used to create the connection.
@@ -74,6 +74,9 @@ class Feed:
         self.ws_defaults = {'ping_interval': 10, 'ping_timeout': None, 'max_size': 2**23, 'max_queue': None, 'origin': self.origin}
         self.key_id = os.environ.get(f'CF_{self.id}_KEY_ID') or self.config[self.id.lower()].key_id
         self.key_secret = os.environ.get(f'CF_{self.id}_KEY_SECRET') or self.config[self.id.lower()].key_secret
+        self.api_key = api_key
+        self.api_secret = api_secret
+        self.subaccount = subaccount
 
         load_exchange_symbol_mapping(self.id, key_id=self.key_id)
 
@@ -270,3 +273,5 @@ class Feed:
                     LOG.info('%s: stopping backend %s', self.id, cb_name)
                     await callback.stop()
         LOG.info('%s: feed shutdown completed', self.id)
+
+

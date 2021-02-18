@@ -20,7 +20,7 @@ from yapic import json
 from cryptofeed.connection import AsyncConnection
 from cryptofeed.defines import BID, ASK, BUY
 from cryptofeed.defines import FTX as FTX_id
-from cryptofeed.defines import FUNDING, L2_BOOK, LIQUIDATIONS, OPEN_INTEREST, SELL, TICKER, TRADES
+from cryptofeed.defines import FUNDING, L2_BOOK, LIQUIDATIONS, OPEN_INTEREST, SELL, TICKER, TRADES, ORDERS, FILLS
 from cryptofeed.exceptions import BadChecksum
 from cryptofeed.feed import Feed
 from cryptofeed.standards import symbol_exchange_to_std, timestamp_normalize
@@ -32,8 +32,8 @@ LOG = logging.getLogger('feedhandler')
 class FTX(Feed):
     id = FTX_id
 
-    def __init__(self, pairs=None, channels=None, callbacks=None, api_key=None, api_secret=None,subaccount=None, **kwargs):
-        super().__init__('wss://ftexchange.com/ws/', pairs=pairs, channels=channels, callbacks=callbacks, api_key=api_key, api_secret=api_secret,subaccount=subaccount, **kwargs)
+    def __init__(self, symbols=None, channels=None, callbacks=None, api_key=None, api_secret=None,subaccount=None, **kwargs):
+        super().__init__('wss://ftexchange.com/ws/', symbols=symbols, channels=channels, callbacks=callbacks, api_key=api_key, api_secret=api_secret,subaccount=subaccount, **kwargs)
         self.__reset()
 
     def __reset(self):
