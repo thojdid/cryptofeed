@@ -284,7 +284,7 @@ class FTX(Feed):
         'createdAt': datetime.datetime(2021, 2, 16, 7, 33, 45, 128599, tzinfo=datetime.timezone.utc)}
         '''
         order = msg['data']
-        print(order)
+        #print(order)
         await self.callback(ORDERS, feed=self.id,
                             market=order['market'],
                             type=order['type'],
@@ -317,8 +317,8 @@ class FTX(Feed):
         'tradeId': 461640141, 'feeRate': Decimal('0.0'), 'fee': Decimal('0.0'), 'feeCurrency': 'USD', 'liquidity': 'maker'}}
 
         '''
-        print(msg)
         fills = msg['data']
+        print(fills)
         await self.callback(FILLS, feed=self.id,
                             market=fills['market'],
                             type=fills['type'],
